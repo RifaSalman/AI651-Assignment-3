@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+data/large_st/**/data.h5
+data/large_st/**/parts_*/
+data/torch*.whl
+data/*.whl
+weights/*.pt
+.DS_Store
