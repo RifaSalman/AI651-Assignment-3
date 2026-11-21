@@ -1,0 +1,8 @@
+{
+  "topk_learned_pairs_checked": 50,
+  "overlap_with_road_graph": 0,
+  "overlap_frac": 0.0,
+  "learned_edge_mean_on_road": 0.001441297703422606,
+  "learned_edge_mean_off_road": 0.001395086757838726,
+  "hybrid_alpha": 0.47835585474967957
+}

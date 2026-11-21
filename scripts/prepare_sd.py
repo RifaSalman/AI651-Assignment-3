@@ -43,16 +43,25 @@ def load_meta_adj():
 
 
 def load_year(year: int, sd_mask: np.ndarray) -> pd.DataFrame:
+    """Load yearly readings via h5py (avoids pytables dependency)."""
+    import h5py
+
     path = RAW / str(year) / "data.h5"
-    df = pd.read_hdf(path, key="readings")
-    # columns may be positional matching full meta order
-    if df.shape[1] == sd_mask.shape[0]:
-        df = df.loc[:, sd_mask]
-    else:
-        # try selecting by meta index labels
-        meta = pd.read_csv(RAW / "sensors" / "metadata.csv", index_col=0)
-        ids = meta.index[sd_mask]
-        df = df.loc[:, ids]
+    sd_idx = np.where(sd_mask)[0]
+    with h5py.File(path, "r") as f:
+        # pandas HDF store layout; read only SD columns
+        dset = f["readings/block0_values"]  # T x N_all
+        if dset.shape[1] != sd_mask.shape[0]:
+            raise ValueError(f"unexpected sensor count {dset.shape[1]} vs mask {sd_mask.shape[0]}")
+        # h5py needs sorted indices for fancy indexing
+        order = np.argsort(sd_idx)
+        sorted_idx = sd_idx[order]
+        vals_sorted = dset[:, sorted_idx]
+        vals = np.empty_like(vals_sorted)
+        vals[:, order] = vals_sorted
+        t_raw = f["readings/axis1"][:]
+    index = pd.to_datetime(t_raw)
+    df = pd.DataFrame(vals, index=index)
     # 15-min mean resampling (flow rates -> average over 3×5min bins)
     df15 = df.resample("15min").mean()
     return df15

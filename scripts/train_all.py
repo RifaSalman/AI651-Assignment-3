@@ -28,8 +28,8 @@ SEED = 42
 IN_STEPS = 8
 OUT_STEPS = 4
 HIDDEN = 24
-BATCH = 32
-EPOCHS = 12
+BATCH = 16
+EPOCHS = 8
 LR = 1e-3
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -131,7 +131,7 @@ def train_one(name, model, loaders, mean, std, A_hat, epochs=EPOCHS):
         history.append(
             {"epoch": ep, "train_l1_norm": total / max(count, 1), "val_mae": val_mae, "val_rmse": val_rmse}
         )
-        print(f"{name} ep{ep}: train={total/max(count,1):.4f} val_mae={val_mae:.4f}")
+        print(f"{name} ep{ep}: train={total/max(count,1):.4f} val_mae={val_mae:.4f}", flush=True)
         if val_mae < best_val:
             best_val = val_mae
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
@@ -176,10 +176,10 @@ def main():
     A = np.load(DATA / "adj.npy")
     ts = np.load(DATA / "timestamps.npy")
     N = X.shape[1]
-    print("X", X.shape, "device", DEVICE)
+    print("X", X.shape, "device", DEVICE, flush=True)
 
     train_idx, val_idx, test_idx = split_indices(ts)
-    print("windows", len(train_idx), len(val_idx), len(test_idx))
+    print("windows", len(train_idx), len(val_idx), len(test_idx), flush=True)
 
     # normalize from train observations only
     train_t0 = train_idx[0] - IN_STEPS + 1
@@ -191,14 +191,14 @@ def main():
     std_t = torch.tensor(std, device=DEVICE)
 
     # subsample train for CPU speed if huge
-    max_train = 8000
+    max_train = 2500
     if len(train_idx) > max_train:
         rng = np.random.default_rng(SEED)
         train_idx = sorted(rng.choice(train_idx, size=max_train, replace=False).tolist())
 
     train_ds = WindowDataset(X, train_idx)
-    val_ds = WindowDataset(X, val_idx[::2][:2000])  # light val
-    test_ds = WindowDataset(X, test_idx[::2][:3000])
+    val_ds = WindowDataset(X, val_idx[::3][:800])  # light val
+    test_ds = WindowDataset(X, test_idx[::3][:1200])
     loaders = (
         DataLoader(train_ds, batch_size=BATCH, shuffle=True),
         DataLoader(val_ds, batch_size=BATCH),
@@ -326,3 +326,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

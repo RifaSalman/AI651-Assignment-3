@@ -1,0 +1,38 @@
+[
+  {
+    "Model": "Temporal-only",
+    "Adjacency": "None",
+    "MAE": 20.8902,
+    "RMSE": 33.7085,
+    "Val_MAE": 17.9795,
+    "Val_RMSE": 29.9955,
+    "Training_time_sec": 89.8
+  },
+  {
+    "Model": "STGNN",
+    "Adjacency": "Fixed",
+    "MAE": 20.9001,
+    "RMSE": 33.6944,
+    "Val_MAE": 17.7573,
+    "Val_RMSE": 29.438,
+    "Training_time_sec": 92.0
+  },
+  {
+    "Model": "STGNN",
+    "Adjacency": "Adaptive",
+    "MAE": 18.2728,
+    "RMSE": 29.1364,
+    "Val_MAE": 16.2048,
+    "Val_RMSE": 26.835,
+    "Training_time_sec": 110.2
+  },
+  {
+    "Model": "STGNN",
+    "Adjacency": "Hybrid",
+    "MAE": 19.709,
+    "RMSE": 32.0399,
+    "Val_MAE": 17.1089,
+    "Val_RMSE": 28.7372,
+    "Training_time_sec": 118.0
+  }
+]

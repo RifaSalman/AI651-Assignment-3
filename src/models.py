@@ -7,7 +7,8 @@ import torch.nn.functional as F
 
 
 def normalize_adj(A: torch.Tensor) -> torch.Tensor:
-    """Symmetric normalization of A+I."""
+    """Symmetrise, add self-loops, then D^{-1/2} A D^{-1/2}."""
+    A = 0.5 * (A + A.t())
     A = A + torch.eye(A.size(0), device=A.device, dtype=A.dtype)
     deg = A.sum(-1).clamp(min=1e-6)
     D_inv_sqrt = torch.diag(deg.pow(-0.5))
@@ -116,9 +117,9 @@ class STGNN(nn.Module):
             A_ad = self.adaptive_adj_softmax()
             a = torch.sigmoid(self.alpha)
             A_hat = a * A_fixed_hat + (1 - a) * A_ad
-        # H = ReLU(A_hat Z W)
+        # residual GCN: H = Z + ReLU(A_hat Z W)
         H = torch.matmul(A_hat, Z)
-        H = F.relu(self.gW(H))
+        H = Z + F.relu(self.gW(H))
         return self.head(H)
 
     def get_learned_adj(self):

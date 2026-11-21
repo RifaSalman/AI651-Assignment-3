@@ -1,0 +1,12 @@
+{
+  "n_nodes": 716,
+  "n_nonzero_edges": 17319,
+  "is_symmetric": false,
+  "symmetric_max_abs_diff": 0.9999998807907104,
+  "degree_mean": 24.18854748603352,
+  "degree_max": 70,
+  "degree_min": 0,
+  "example_sensor": 342,
+  "one_hop_count": 70,
+  "two_hop_count": 71
+}
