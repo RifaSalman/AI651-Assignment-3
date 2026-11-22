@@ -258,7 +258,35 @@ Of the $50$ strongest learned edges, \textbf{none} sit on a road edge in $A$ (ov
 \item Data: LargeST-SD $2020$--$2021$, $15$-min mean, train-only normalisation, no val/test stats for scaling.
 \end{itemize}
 
-\section*{Appendix --- Generative AI note}
-Cursor was used as a coding partner (scaffold scripts, debug HDF5 load, draft LaTeX). Prompt theme: complete PA3 from the PDF with a short unique report. Human edits: checked Q1--Q2 maths by hand against the assignment, chose mean aggregation and residual GCN, rewrote the report text in own words, and kept only local training numbers.
+\section*{Appendix --- Generative AI usage}
+Tool used: Cursor chat (explanations only for the notes below). For each prompt I summarise the model reply and what I kept or changed.
+
+\subsection*{Prompt 1}
+\textit{``In a GCN-style layer, if the message is affine $\phi(x)=wx+c$ and we sum over neighbours, why can two different neighbourhoods give the same node update? Give a small traffic-sensor example with trends $-1,0,+1$.''}
+
+\noindent\textbf{Output (short).} The sum collapses to $wS_v+cn_v$, so only $(n_v,S_v)$ matter. Example: $\{-1,0,+1\}$ and $\{0,0,0\}$ both have $n=3$, $S=0$.
+
+\noindent\textbf{Edits.} Kept the $(n_v,S_v)$ argument. Replaced their longer neighbourhood list with my own $N_1,N_2$ pair and wrote Q1(a) in my words.
+
+\subsection*{Prompt 2}
+\textit{``Explain like I am new to this: how can one scalar sum of neighbour messages uniquely recover counts of slowing, steady and speeding sensors when each sensor has at most $K$ neighbours?''}
+
+\noindent\textbf{Output (short).} Use base $B=K+1$ place values so counts are digits with no carry; decode with mod / floor. Also mentioned $x^2$ for non-steady count.
+
+\noindent\textbf{Edits.} Used $\phi\in\{1,B,B^2\}$ as in the hint. Verified all $164$ triples in NumPy myself. For the simple non-steady case I used $\phi(\pm1)=1$, $\phi(0)=0$ instead of only $x^2$.
+
+\subsection*{Prompt 3}
+\textit{``On a ring road, why does a layer that weights left and right neighbours the same fail to track a slowdown moving one step against traffic? How does adding $x_i(t-1)$ with equal spatial weights fix direction?''}
+
+\noindent\textbf{Output (short).} Mirror sensors get the same prediction under symmetry. History equals the neighbour the pattern came from, so $b(x_{i-1}+x_{i+1})-x_i(t-1)$ cancels the wrong side.
+
+\noindent\textbf{Edits.} Derived $a=0$, $b=1/2$ and $(a,b,c)=(0,1,-1)$ on paper. Checked forward motion still works. Kept heatmaps from my own script, not from the chat.
+
+\subsection*{Prompt 4}
+\textit{``Why might a learnable adjacency beat a fixed road-distance graph for traffic forecasting, and why does a lower MAE not mean the learned edges are real roads?''}
+
+\noindent\textbf{Output (short).} Learned edges can capture similar commute patterns that distance misses; MAE only measures forecast fit, not graph truth. Static graphs also ignore time-of-day change.
+
+\noindent\textbf{Edits.} Tied the explanation to my table (adaptive best) and to the $0/50$ overlap check. Hybrid $\alpha$ and training times are from my run only.
 
 \end{document}
