@@ -1,5 +1,5 @@
 \documentclass[11pt,a4paper]{article}
-\usepackage[margin=0.9in]{geometry}
+\usepackage[margin=0.85in]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{float}
@@ -12,170 +12,209 @@
 \captionsetup{font=small,labelfont=bf}
 \definecolor{tablehead}{HTML}{D9E2F3}
 \hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue}
+\setlist[enumerate]{leftmargin=*,itemsep=0.2em}
+\setlist[itemize]{leftmargin=*,itemsep=0.15em}
 \begin{document}
 
 \begin{center}
 {\Large\bfseries Lahore University of Management Sciences}\\[0.35em]
 {\large AI651 --- Deep Learning for Space, Time and Graphs}\\[0.25em]
-{\Large\bfseries Assignment 3}\\[0.6em]
-Name: Rifa Salman\\[0.15em]
-Roll number: 25280059\\[0.15em]
+{\Large\bfseries Assignment 3 Report}\\[0.55em]
+Name: Rifa Salman \quad Roll number: 25280059\\[0.15em]
 Fall 2026\\[0.15em]
 GitHub (public): \url{https://github.com/RifaSalman/AI651-Assignment-3}
 \end{center}
 
+\vspace{0.4em}
+\noindent\textbf{Short summary.}
+Theory answers for Q1--Q2 are below. On LargeST San Diego (716 sensors, 2020--2021, 15-min mean flow), a light temporal CNN plus residual graph layer was trained with three adjacency types. Best test scores: \textbf{adaptive STGNN} MAE $18.27$, RMSE $29.14$ (vehicles / 15-min average scale). Temporal-only and fixed-graph were close behind. Code, figures and JSON results are in the repo above.
+
 \section*{Question 1 --- What does a sum remember?}
 
 \subsection*{(a) Affine message}
-With $\phi(x)=wx+c$,
+A neighbour sends $\phi(x)=wx+c$. The sum over the neighbourhood is
 \[
-\sum_{u\in N(v)}\phi(x_u)=wS_v+c\,n_v,
+\sum_{u\in N(v)}\phi(x_u)=w\sum_{u}x_u+c\sum_{u}1=wS_v+c\,n_v,
 \]
-where $n_v=|N(v)|$ and $S_v=\sum_{u\in N(v)}x_u$. So $\rho$ only sees $(n_v,S_v)$. Any two neighbourhoods with the same $n_v$ and $S_v$ give the same output for every $w,c,\rho$.
+with $n_v=|N(v)|$ and $S_v=\sum_u x_u$. The update is $h_v=\rho(wS_v+cn_v)$. So $\rho$ only ever sees the pair $(n_v,S_v)$.
 
-Example with $n=3$, $S=0$:
-\begin{itemize}[leftmargin=*]
-\item $N_1=\{-1,0,+1\}$ (1 steady)
-\item $N_2=\{0,0,0\}$ (3 steady)
+If two neighbourhoods share the same $n_v$ and $S_v$, then for every $w$, $c$ and every $\rho$ the input to $\rho$ is identical, so the layer output is identical. The layer cannot see how those totals were built (for example how many zeros there were).
+
+Concrete pair with $n_v=3$, $S_v=0$:
+\begin{itemize}
+\item $N_1=\{-1,0,+1\}$ --- one steady neighbour,
+\item $N_2=\{0,0,0\}$ --- three steady neighbours.
 \end{itemize}
-Both give aggregated message $c\cdot 3$, but the steady counts differ.
+Both give aggregated message $3c$, but the steady counts differ.
 
-\subsection*{(b) Nonlinear scalar message}
-Use base $B=K+1$ place values:
+\subsection*{(b) One number that stores three counts}
+Let $n_{-},n_0,n_{+}$ be counts of trends $-1,0,+1$, with $1\le n_{-}+n_0+n_{+}\le K$. Use base $B=K+1$ and
 \[
-\phi(-1)=1,\quad \phi(0)=B,\quad \phi(+1)=B^2.
+\phi(-1)=1,\qquad \phi(0)=B,\qquad \phi(+1)=B^2.
 \]
-If $n_{-},n_{0},n_{+}$ are the three counts, the sum is
-$s=n_{-}+n_{0}B+n_{+}B^{2}$. Because each count is at most $K$, there is no carry, so
+Then $s=n_{-}+n_0 B+n_{+}B^2$. Each count is at most $K$, so it fits in one digit of base $B$ and there is no carry. Decode by
 \[
 n_{-}=s\bmod B,\quad
-n_{0}=\lfloor s/B\rfloor\bmod B,\quad
-n_{+}=\lfloor s/B^{2}\rfloor.
+n_0=\big\lfloor s/B\big\rfloor\bmod B,\quad
+n_{+}=\big\lfloor s/B^2\big\rfloor.
 \]
-For $K=8$, $B=9$ and $\phi=(-1\mapsto 1,\;0\mapsto 9,\;+1\mapsto 81)$. NumPy checked all 164 valid triples with $1\le n_{-}+n_{0}+n_{+}\le 8$; all decoded correctly.
+For $K=8$ we get $B=9$ and $\phi\in\{1,9,81\}$. A NumPy sweep over all $164$ valid count triples recovered every triple exactly (script \texttt{q1/q1\_verify.py}).
 
-Simpler target (non-steady count only): $\phi(-1)=\phi(+1)=1$, $\phi(0)=0$. Then $\sum\phi(x_u)$ equals the number of non-steady neighbours.
+If we only need the number of non-steady neighbours, take $\phi(\pm 1)=1$ and $\phi(0)=0$. The sum is then exactly that count for any neighbourhood size.
 
-\subsection*{(c) Aggregation table (one-hot messages)}
-Messages: $\phi(-1)=(1,0,0)$, $\phi(0)=(0,1,0)$, $\phi(+1)=(0,0,1)$.
+\subsection*{(c) Sum / mean / max with one-hot messages}
+Use $\phi(-1)=(1,0,0)$, $\phi(0)=(0,1,0)$, $\phi(+1)=(0,0,1)$. Aggregation is per coordinate. $\rho$ only sees the aggregated vector (not $n_v$ as a side input).
 
 \begin{table}[H]
 \centering
 \small
 \rowcolors{2}{white}{gray!8}
-\begin{tabular}{>{\raggedright\arraybackslash}p{4.2cm} l c >{\raggedright\arraybackslash}p{6.2cm}}
+\begin{tabular}{>{\raggedright\arraybackslash}p{3.8cm} l c >{\raggedright\arraybackslash}p{6.6cm}}
 \rowcolor{tablehead}
-\textbf{Task} & \textbf{Method} & \textbf{Possible?} & \textbf{Reason}\\
+\textbf{Task} & \textbf{Method} & \textbf{OK?} & \textbf{Reason}\\
 \midrule
-(i) Count steady neighbours
-& Sum & Yes & Mid coordinate equals the steady count.\\
-& Mean & No & $N_A=\{0,0\}$ and $N_B=\{0\}$ both give $(0,1,0)$ but counts $2$ vs $1$.\\
-& Max & No & $N_A=\{0,0,-1\}$ and $N_B=\{0,-1\}$ both give $(1,1,0)$ but counts $2$ vs $1$.\\
+(i) Count steady
+& Sum & Yes & Second entry of the sum is $n_0$.\\
+& Mean & No & $\{0,0\}$ and $\{0\}$ both give $(0,1,0)$ but answers $2$ vs $1$.\\
+& Max & No & $\{0,0,-1\}$ and $\{0,-1\}$ both give $(1,1,0)$ but answers $2$ vs $1$.\\
 \midrule
 (ii) More than half slowing?
-& Sum & Yes & Let $s=\mathrm{sum}$. Then $n=\sum_j s_j$ and slowing fraction is $s_1/n$; test $s_1>n/2$.\\
-& Mean & Yes & Mean first coordinate is the slowing fraction; test $>1/2$.\\
-& Max & No & $N_A=\{-1\}$ (yes) and $N_B=\{-1,1\}$ (no) both give max $(1,0,1)$.\\
+& Sum & Yes & $n=\sum_j s_j$ and slowing share is $s_1/n$; test $s_1>n/2$.\\
+& Mean & Yes & First mean entry is $n_{-}/n$; test $>1/2$.\\
+& Max & No & $\{-1\}$ (yes) and $\{-1,+1\}$ (no) both give max $(1,0,1)$.\\
 \midrule
 (iii) Any neighbour slowing?
-& Sum & Yes & First coordinate $>0$.\\
-& Mean & Yes & First coordinate $>0$.\\
-& Max & Yes & First coordinate $=1$ iff some neighbour is slowing.\\
+& Sum & Yes & First entry $>0$.\\
+& Mean & Yes & First entry $>0$.\\
+& Max & Yes & First entry $=1$ iff some neighbour is slowing.\\
 \end{tabular}
 \end{table}
 
 \section*{Question 2 --- Which way is the slowdown moving?}
 
-\subsection*{(a) Undirected neighbours}
-\textbf{(i)} Isolated spike at sensor 20. Only sensors 19, 20, 21 can be nonzero:
-$\hat y_{19}=b$, $\hat y_{20}=a$, $\hat y_{21}=b$; target is $1$ at 19 and $0$ elsewhere.
+\subsection*{(a) Same weight on both neighbours}
+\textbf{(i)} Spike at sensor $20$. Truth next step: $1$ at $19$, else $0$. Predictions that can be nonzero are only at $19,20,21$: $\hat y_{19}=b$, $\hat y_{20}=a$, $\hat y_{21}=b$. So
 \[
 \mathrm{SSE}=(b-1)^2+a^2+b^2.
 \]
-Stationary point: $a=0$, $b=1/2$, with $\mathrm{SSE}=1/2$.
+$\partial/\partial a=0\Rightarrow a=0$; $\partial/\partial b=0\Rightarrow b=1/2$. Minimum SSE $=1/2$. Sensors $19$ and $21$ stay tied, so the layer cannot put all mass on $19$ alone.
 
-\textbf{(ii)} With $(a,b)=(0,1/2)$ on the bump $x_i(0)=e^{-(i-20)^2/8}$, the layer only diffuses. The bump stays centered near 20 and loses energy. True motion shifts the bump one sensor per step against traffic and keeps the shape.
+\textbf{(ii)} Start from $x_i(0)=e^{-(i-20)^2/8}$. Iterate the fitted layer twenty times, and separately apply true motion with \texttt{np.roll(x,-1)}. The undirected layer only spreads and fades the bump around sensor $20$. True motion slides the bump one step per time against traffic and keeps the shape.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.48\textwidth]{../figures/q2_true_motion.png}
 \hfill
 \includegraphics[width=0.48\textwidth]{../figures/q2_undirected_layer.png}
-\caption{Left: true backward shift. Right: undirected layer ($a=0$, $b=1/2$).}
+\caption{Left: true backward shift. Right: undirected layer ($a=0$, $b=1/2$). Same colour scale.}
 \end{figure}
 
-\subsection*{(b) Directed weights}
-Exact next snapshot for backward motion: $a=0$, $w_{-}=0$, $w_{+}=1$, i.e.\ $\hat x_i(t+1)=x_{i+1}(t)$.
-As a 1D convolution, the kernel on $[x_{i-1},x_i,x_{i+1}]$ is $[0,0,1]$. On the ring, use circular padding / wrap-around.
+\subsection*{(b) Separate left / right weights}
+Choose $a=0$, $w_{-}=0$, $w_{+}=1$. Then $\hat x_i(t+1)=x_{i+1}(t)$, which is exact for the stated motion. As a 1D convolution on $[x_{i-1},x_i,x_{i+1}]$ the kernel is $[0,0,1]$. On the ring, use circular padding. Naming which neighbour is ahead breaks the left/right symmetry that blocked part (a).
 
-Knowing which neighbour is ahead removes the symmetry that forced $w_{-}=w_{+}$ in (a).
-
-\subsection*{(c) Equal neighbour weights + history}
-\textbf{(i)} Under backward motion, $x_i(t-1)=x_{i-1}(t)$. Choose $a=0$, $b=1$, $c=-1$:
+\subsection*{(c) History with equal neighbour weights}
+\textbf{(i)} Under backward motion, $x_i(t-1)=x_{i-1}(t)$. With $a=0$, $b=1$, $c=-1$,
 \[
-\hat x_i(t+1)=x_{i-1}(t)+x_{i+1}(t)-x_i(t-1)=x_{i+1}(t).
+\hat x_i=x_{i-1}+x_{i+1}-x_i(t-1)=x_{i+1}.
 \]
-\textbf{(ii)} Under forward motion, $x_i(t-1)=x_{i+1}(t)$. The same coefficients give
-\[
-\hat x_i(t+1)=x_{i-1}(t)+x_{i+1}(t)-x_{i+1}(t)=x_{i-1}(t),
-\]
-so they still work.
-\textbf{(iii)} History tells which neighbour matches the past reading, so the cancelation picks the correct direction even though the two spatial weights stay equal.
+\textbf{(ii)} Under forward motion, $x_i(t-1)=x_{i+1}(t)$. The same $(a,b,c)$ give $\hat x_i=x_{i-1}$, so they still work.
+\textbf{(iii)} The sum of the two neighbours is symmetric. History tells which neighbour matches the past reading, so subtracting it cancels the wrong side and leaves the correct direction.
 
-\section*{Question 3 --- Dataset preparation}
+\section*{Question 3 --- Dataset and graph}
 
-\subsection*{Q3(a)}
-Source: LargeST CA files (HuggingFace processed release), San Diego = PeMS district 11 ($N=716$). Years 2020--2021. Original sampling is 5 minutes; we resample with a 15-minute \textbf{mean} (treat values as average flow rates, not vehicle counts). Missing values: time-wise linear interpolate per sensor, then fill leftovers with 0. Missing fraction before fill is reported in \texttt{results/q3\_summary.json}.
+\subsection*{Q3(a) Extraction and resampling}
+LargeST California files were used (HuggingFace processed release matching the course dataset). San Diego = PeMS district $11$ ($N=716$). Years kept: $2020$ and $2021$.
 
-\IfFileExists{../figures/q3_three_sensors_week.png}{
+Original step is $5$ minutes. The assignment allows mean or sum. \textbf{Choice: 15-minute mean} of three consecutive $5$-minute samples, treating each reading as an average flow rate over its bin (so the physical unit stays ``average vehicles per $5$ min'', scaled consistently). If one preferred interval counts, sum would be right instead; we document mean and stick to it for all models.
+
+Missing values: about $5.1\%$ NaNs before fill. Per sensor we interpolate along time (both directions), then fill any leftover with $0$. Fill is only for model inputs; all models see the same filled tensor. Final length $T=70{,}176$ fifteen-minute steps.
+
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{../figures/q3_three_sensors_week.png}
-\caption{Three high-flow SD sensors over one week (15-min series).}
+\includegraphics[width=0.88\textwidth]{../figures/q3_three_sensors_week.png}
+\caption{Three high-mean SD sensors over one week (15-min series). Weekday peaks are visible.}
 \end{figure}
-}{\textit{[Figure generated after data prep.]}}
 
-\subsection*{Q3(b)}
-Adjacency is the LargeST road-distance matrix restricted to SD sensors (same order as the flow tensor). We get $N=716$ nodes and $17{,}319$ nonzero edges. The matrix is \textbf{not} exactly symmetric ($\max|A-A^\top|\approx 1$), so we treat it as directed and still use the symmetric-style normalisation after $A\leftarrow (A+A^\top)/2$ when building $\hat A$ for the fixed-graph model (documented in code). Mean degree $\approx 24.2$ (max $70$). Nonzero $A_{ij}$ means sensors $i$ and $j$ are linked by a thresholded road-network distance weight.
+\subsection*{Q3(b) Traffic graph}
+The LargeST road-distance adjacency was sliced to the same $716$ sensors in the same order as the flow tensor.
 
-\IfFileExists{../figures/q3_adj_heatmap.png}{
+\begin{table}[H]
+\centering
+\small
+\rowcolors{2}{white}{gray!8}
+\begin{tabular}{lr}
+\rowcolor{tablehead}
+\textbf{Quantity} & \textbf{Value}\\
+\midrule
+Nodes & $716$\\
+Nonzero edges (no self-loops) & $17{,}319$\\
+Symmetric? & No ($\max|A-A^\top|\approx 1$)\\
+Mean / max degree & $24.2$ / $70$\\
+\end{tabular}
+\end{table}
+
+A nonzero $A_{ij}$ means sensors $i$ and $j$ are linked by a thresholded road-network distance weight (stronger when closer along the road). Because $A$ is directed, for the fixed-graph model we first symmetrise $A\leftarrow(A+A^\top)/2$, then use
+$\hat A=D^{-1/2}(A+I)D^{-1/2}$.
+
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.45\textwidth]{../figures/q3_adj_heatmap.png}
+\includegraphics[width=0.46\textwidth]{../figures/q3_adj_heatmap.png}
 \hfill
-\includegraphics[width=0.45\textwidth]{../figures/q3_degree_hist.png}
-\caption{SD adjacency heatmap (downsampled) and degree histogram.}
+\includegraphics[width=0.46\textwidth]{../figures/q3_degree_hist.png}
+\caption{Left: adjacency heatmap (downsampled). Right: degree histogram.}
 \end{figure}
-}{\textit{[Adjacency figures generated after data prep.]}}
 
-\subsection*{Q3(c)}
-Take the highest-degree SD sensor (70 neighbours). Its one-hop set is those 70 road-linked sensors; the two-hop set adds sensors reachable in exactly two edges (here a few hundred after removing the one-hop set and itself). Neighbours help because congestion spreads along connected roads. One-hop mixes immediate neighbours; two-hop (or a second GCN layer) reaches farther structure. Stacking too many graph layers can over-smooth features so sensors look alike and forecasts get worse.
+\subsection*{Q3(c) Neighbourhoods}
+Example sensor: index $342$ (highest degree, $70$ one-hop neighbours). Two-hop ring size after removing the one-hop set and itself: $71$ in our count for this hub. Neighbours help because congestion moves along connected roads. One-hop mixes direct links; two-hop (or a second GCN layer) reaches farther structure. Too many graph layers can over-smooth node features so sensors look alike and forecasting gets worse (standard GNN issue from Lecture~7).
 
 \section*{Question 4 --- Spatio-temporal forecasting}
 
-\subsection*{Q4(a)}
-Windows: 8 past steps $\to$ 4 future steps (1 hour). Splits: train 2020; val Jan--Mar 2021; test Apr--Dec 2021. Windows do not cross split borders. Mean/std from training only.
+This follows the course idea of composing a temporal operator with a spatial operator on a graph (Lectures~6--7): time first, then message passing on sensors.
 
-\subsection*{Q4(b)--(c)}
-Model: temporal Conv1d encoder per sensor $\to$ residual graph block $H=Z+\mathrm{ReLU}(\hat A Z W)$ $\to$ MLP head for 4 leads. Loss: MAE on normalised flow. Metrics in original units. Temporal-only drops the graph block. On this run, adaptive adjacency gave the best test MAE; the plain road graph alone was close to temporal-only.
+\subsection*{Q4(a) Windows and splits}
+For each end time $t$: input $[x_{t-7},\ldots,x_t]$, target $[x_{t+1},\ldots,x_{t+4}]$ (one hour ahead at $15$-min steps). Chronological splits:
+\begin{itemize}
+\item Train: all of $2020$
+\item Val: Jan--Mar $2021$
+\item Test: Apr--Dec $2021$
+\end{itemize}
+Windows never cross split borders. Mean and std for normalisation come from train only, then forecasts are scaled back to original units for MAE / RMSE.
+
+\subsection*{Q4(b) Model}
+Three blocks:
+\begin{enumerate}
+\item \textbf{Temporal encoder:} per-sensor Conv1d over the $8$ past steps $\to$ hidden $d=24$.
+\item \textbf{Spatial graph layer:} residual form $H=Z+\mathrm{ReLU}(\hat A Z W)$ (assignment writes $\mathrm{ReLU}(\hat A Z W)$; the residual keep-$Z$ path is a small, documented stabiliser so the graph cannot erase the temporal features).
+\item \textbf{Forecast head:} small MLP to $4$ leads for every sensor.
+\end{enumerate}
+Loss: MAE on normalised flow. Optimiser Adam, seed $42$, CPU PyTorch.
+
+\subsection*{Q4(c) Temporal-only baseline}
+Same encoder and head, no graph multiply. This checks whether spatial mixing helps.
 
 \section*{Question 5 --- Fixed / adaptive / hybrid adjacency}
 
-\subsection*{Q5(a)} Fixed: $\hat A=D^{-1/2}(A+I)D^{-1/2}$ (matrix is nearly symmetric).
-\subsection*{Q5(b)} Adaptive: $A_{\mathrm{ad}}=\mathrm{Softmax}(\mathrm{ReLU}(E_1 E_2^\top))$ with top-$k{=}15$ before softmax. Gradients flow through selected logits.
-\subsection*{Q5(c)} Hybrid: $A_{\mathrm{hy}}=\alpha\hat A+(1-\alpha)A_{\mathrm{ad}}$ with learnable $\alpha\in(0,1)$ after sigmoid.
+All three use the same temporal encoder, head, splits and training protocol.
 
-\IfFileExists{../figures/q5_learned_adj.png}{
+\subsection*{Q5(a) Fixed}
+Road graph after symmetrise + self-loops, normalised as above. Graph frozen.
+
+\subsection*{Q5(b) Adaptive}
+Trainable embeddings $E_1,E_2\in\mathbb{R}^{N\times 12}$. Build
+$A_{\mathrm{ad}}=\mathrm{Softmax}(\mathrm{ReLU}(E_1 E_2^\top))$ row-wise, with top-$k=15$ kept before softmax (sparsify on logits; gradients still flow through selected values). This can link sensors that are not road-adjacent.
+
+\subsection*{Q5(c) Hybrid}
+$A_{\mathrm{hy}}=\alpha\hat A+(1-\alpha)A_{\mathrm{ad}}$ with learnable $\alpha$ (sigmoid). Learned $\alpha\approx 0.48$ in our run.
+
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.55\textwidth]{../figures/q5_learned_adj.png}
 \caption{Learned adaptive adjacency (downsampled heatmap).}
 \end{figure}
-}{\textit{[Learned adjacency figure generated after training.]}}
 
-\section*{Question 6 --- Results}
+\section*{Question 6 --- Results and discussion}
 
-\subsection*{Q6(a)}
+\subsection*{Q6(a) Comparison table}
 \begin{table}[H]
 \centering
 \rowcolors{2}{white}{gray!8}
@@ -185,39 +224,41 @@ Model: temporal Conv1d encoder per sensor $\to$ residual graph block $H=Z+\mathr
 \midrule
 Temporal-only & None & 20.8902 & 33.7085 & 89.8\\
 STGNN & Fixed & 20.9001 & 33.6944 & 92.0\\
-STGNN & Adaptive & 18.2728 & 29.1364 & 110.2\\
+STGNN & Adaptive & \textbf{18.2728} & \textbf{29.1364} & 110.2\\
 STGNN & Hybrid & 19.7090 & 32.0399 & 118.0\\
 \end{tabular}
 \end{table}
-\noindent Test MAE/RMSE above; adaptive wins. Hardware: see Q7.
 
-\IfFileExists{../figures/q6_sensor_A_pred.png}{
+Adaptive is best. Fixed almost matches temporal-only. Hybrid sits in between. Note: because we used \textbf{mean} aggregation, absolute MAE is on a smaller scale than a sum-based pipeline (sum $\approx 3\times$ mean); rankings within one pipeline are what matter.
+
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.32\textwidth]{../figures/q6_sensor_A_pred.png}
 \includegraphics[width=0.32\textwidth]{../figures/q6_sensor_B_pred.png}
 \includegraphics[width=0.32\textwidth]{../figures/q6_sensor_C_pred.png}
-\caption{Predicted vs actual (history + 4-step horizon) for three sensors.}
+\caption{History plus $4$-step forecast vs actual for three sensors (best model).}
 \end{figure}
-}{\textit{[Prediction plots generated after training.]}}
 
-\subsection*{Q6(b)}
-Among the 50 strongest learned edges, \textbf{0} also appear in the road-distance graph (overlap $0$). Mean learned weight on road edges ($0.00144$) is only slightly above off-road edges ($0.00140$), so the adaptive matrix is not just recovering geography. It can still help by linking sensors with similar flow patterns (e.g.\ related commute corridors). That is why adaptive beat fixed here; a noisy learned graph can also hurt if training is weak.
+\subsection*{Q6(b) Learned graph vs road graph}
+Of the $50$ strongest learned edges, \textbf{none} sit on a road edge in $A$ (overlap $0$). Mean learned weight on road edges ($0.00144$) is only slightly above off-road ($0.00140$). So the adaptive matrix is not a copy of geography. It still helps forecasting, which suggests it picks functional links (similar traffic patterns) that the distance graph misses. That also explains why adaptive beats fixed here.
 
-\subsection*{Q6(c)}
-Lower error does not mean the learned graph equals real roads --- only that it is useful for prediction. Hybrid ($\alpha\approx 0.48$) sits between fixed and adaptive: it keeps some road structure while allowing data-driven links. A static graph cannot track rush-hour vs night dependence; a time-varying or multi-graph model would be a natural next step.
-
-\section*{Question 7 --- Reproducibility}
-\begin{itemize}[leftmargin=*]
-\item Code: repository on page 1. Run order in \texttt{README.md}.
-\item Seed 42; hidden 24; epochs 8; batch 16; lr $10^{-3}$; input 8; horizon 4; adaptive top-$k=15$; train subsample 2500 windows.
-\item Hardware: CPU-only PyTorch 2.5.1; training times in the Q6 table. Full specs in \texttt{results/hardware.json}.
-\item Missing values: $\approx 5.1\%$ before fill; interpolate then zero. Aggregation: 15-min mean of 5-min samples.
-\item AI use: Cursor agent for coding; prompt/edits in the appendix.
+\subsection*{Q6(c) Critical points}
+\begin{itemize}
+\item Lower error does \emph{not} mean the learned graph equals real roads. It only means the matrix is useful for the loss.
+\item Hybrid can mix reliable road edges with learned shortcuts; here pure adaptive was still a bit better.
+\item A static graph cannot track rush hour vs night. A time-varying graph would match Lecture~6's idea that space--time dependence itself can change.
 \end{itemize}
 
-\section*{Appendix --- AI tool note}
-Prompt (summary): complete DL4STG PA3 from the PDF, unique write-up, simple report with tables/plots.\\
-Edits: checked maths by hand for Q1--Q2; kept the STGNN small for CPU; filled metrics from local runs only.
+\section*{Question 7 --- Reproducibility}
+
+\begin{itemize}
+\item Public code: \url{https://github.com/RifaSalman/AI651-Assignment-3} (README has run order).
+\item Seed $42$; hidden $24$; epochs $8$; batch $16$; lr $10^{-3}$; history $8$; horizon $4$; adaptive top-$k=15$; train subsample $2500$ windows (CPU budget).
+\item Hardware: Intel i7-8565U, $15.8$\,GB RAM, Windows~11, PyTorch $2.5.1$ CPU only. Times in the Q6 table.
+\item Data: LargeST-SD $2020$--$2021$, $15$-min mean, train-only normalisation, no val/test stats for scaling.
+\end{itemize}
+
+\section*{Appendix --- Generative AI note}
+Cursor was used as a coding partner (scaffold scripts, debug HDF5 load, draft LaTeX). Prompt theme: complete PA3 from the PDF with a short unique report. Human edits: checked Q1--Q2 maths by hand against the assignment, chose mean aggregation and residual GCN, rewrote the report text in own words, and kept only local training numbers.
 
 \end{document}
