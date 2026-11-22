@@ -106,7 +106,7 @@ $\partial/\partial a=0\Rightarrow a=0$; $\partial/\partial b=0\Rightarrow b=1/2$
 \includegraphics[width=0.48\textwidth]{../figures/q2_true_motion.png}
 \hfill
 \includegraphics[width=0.48\textwidth]{../figures/q2_undirected_layer.png}
-\caption{Left: true backward shift. Right: undirected layer ($a=0$, $b=1/2$). Same colour scale.}
+\caption{Left: true backward shift. Right: undirected layer ($a=0$, $b=1/2$). Colour bar = slowdown intensity; axes are sensor index and time.}
 \end{figure}
 
 \subsection*{(b) Separate left / right weights}
@@ -132,7 +132,7 @@ Missing values: about $5.1\%$ NaNs before fill. Per sensor we interpolate along 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.88\textwidth]{../figures/q3_three_sensors_week.png}
-\caption{Three high-mean SD sensors over one week (15-min series). Weekday peaks are visible.}
+\caption{Three high-mean SD sensors over one week (15-min series). Legend names the sensors; $x$-axis is hours from week start.}
 \end{figure}
 
 \subsection*{Q3(b) Traffic graph}
@@ -161,7 +161,7 @@ $\hat A=D^{-1/2}(A+I)D^{-1/2}$.
 \includegraphics[width=0.46\textwidth]{../figures/q3_adj_heatmap.png}
 \hfill
 \includegraphics[width=0.46\textwidth]{../figures/q3_degree_hist.png}
-\caption{Left: adjacency heatmap (downsampled). Right: degree histogram.}
+\caption{Left: adjacency heatmap with colour bar for $A_{ij}$. Right: degree histogram (count of sensors vs neighbours).}
 \end{figure}
 
 \subsection*{Q3(c) Neighbourhoods}
@@ -209,7 +209,7 @@ $A_{\mathrm{hy}}=\alpha\hat A+(1-\alpha)A_{\mathrm{ad}}$ with learnable $\alpha$
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.55\textwidth]{../figures/q5_learned_adj.png}
-\caption{Learned adaptive adjacency (downsampled heatmap).}
+\caption{Learned adaptive adjacency (downsampled). Colour bar shows learned edge weight.}
 \end{figure}
 
 \section*{Question 6 --- Results and discussion}
@@ -236,7 +236,7 @@ Adaptive is best. Fixed almost matches temporal-only. Hybrid sits in between. No
 \includegraphics[width=0.32\textwidth]{../figures/q6_sensor_A_pred.png}
 \includegraphics[width=0.32\textwidth]{../figures/q6_sensor_B_pred.png}
 \includegraphics[width=0.32\textwidth]{../figures/q6_sensor_C_pred.png}
-\caption{History plus $4$-step forecast vs actual for three sensors (best model).}
+\caption{History plus $4$-step forecast vs actual for three sensors (best model). Legend: history / actual / predicted.}
 \end{figure}
 
 \subsection*{Q6(b) Learned graph vs road graph}
